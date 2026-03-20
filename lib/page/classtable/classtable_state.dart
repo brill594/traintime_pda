@@ -11,8 +11,10 @@ import 'package:intl/intl.dart';
 import 'package:timezone/data/latest.dart' as tz;
 
 import 'package:watermeter/controller/classtable_controller.dart';
+import 'package:watermeter/controller/custom_class_controller.dart';
 import 'package:watermeter/controller/exam_controller.dart';
 import 'package:watermeter/controller/experiment_controller.dart';
+import 'package:watermeter/model/pda_service/custom_class.dart';
 import 'package:watermeter/model/time_list.dart';
 import 'package:watermeter/model/xidian_ids/classtable.dart';
 import 'package:watermeter/model/xidian_ids/exam.dart';
@@ -73,6 +75,7 @@ class ClassTableWidgetState with ChangeNotifier {
 
   /// The controller...
   final ClassTableController classTableController = Get.find();
+  final CustomClassController customClassController = Get.find();
   final ExamController examController = Get.find();
   final ExperimentController experimentController = Get.find();
 
@@ -134,6 +137,9 @@ class ClassTableWidgetState with ChangeNotifier {
   /// The experiment list.
   List<ExperimentData> get experiments => experimentController.data;
 
+  /// The custom class list.
+  List<CustomClass> get customClasses => customClassController.customClasses;
+
   /// Get class detail by prividing index of timearrangement
   ClassDetail getClassDetail(int index) => classTableController.classTableData
       .getClassDetail(timeArrangement[index]);
@@ -159,6 +165,37 @@ class ClassTableWidgetState with ChangeNotifier {
       classTableController
           .deleteUserDefinedClass(timeArrangement)
           .then((value) => notifyListeners());
+
+  Future<void> addCustomClass(CustomClass customClass) =>
+      customClassController.addCustomClass(customClass).then((_) {
+        notifyListeners();
+      });
+
+  Future<void> editCustomClassById(
+    String customClassId,
+    CustomClass customClass,
+  ) => customClassController
+      .editCustomClassById(customClassId, customClass)
+      .then((_) {
+        notifyListeners();
+      });
+
+  Future<void> deleteCustomClassById(String customClassId) =>
+      customClassController.deleteCustomClassById(customClassId).then((_) {
+        notifyListeners();
+      });
+
+  Future<void> deleteCustomClassTimeRange({
+    required String customClassId,
+    required String timeRangeId,
+  }) => customClassController
+      .deleteCustomClassTimeRange(
+        customClassId: customClassId,
+        timeRangeId: timeRangeId,
+      )
+      .then((_) {
+        notifyListeners();
+      });
 
   List<Event> get events {
     List<Event> events = [];
@@ -292,6 +329,22 @@ class ClassTableWidgetState with ChangeNotifier {
             start: TZDateTime.from(j.$1, currentLocation),
             end: TZDateTime.from(j.$2, currentLocation),
             location: experiment.classroom,
+          ),
+        );
+      }
+    }
+
+    for (final customClass in customClasses) {
+      for (final timeRange in customClass.timeRanges) {
+        events.add(
+          Event(
+            null,
+            title: '${customClass.name}@${customClass.classroom ?? "待定"}',
+            description:
+                '自定义课程：${customClass.name} - 老师：${customClass.teacher ?? "未知"}',
+            start: TZDateTime.from(timeRange.startTime, currentLocation),
+            end: TZDateTime.from(timeRange.endTime, currentLocation),
+            location: customClass.classroom,
           ),
         );
       }
@@ -519,6 +572,24 @@ END:VTIMEZONE
           );
         }
       }
+    }
+
+    final customOccurrences = customClassController.getOccurrenceOfDay(
+      weekIndex: weekIndex,
+      dayIndex: dayIndex,
+      semesterStartDay: startDay,
+    );
+    for (final occurrence in customOccurrences) {
+      final int colorIndex = customClasses.indexWhere(
+        (item) => item.id == occurrence.customClass.id,
+      );
+      events.add(
+        ClassOrgainzedData.fromCustomClass(
+          colorList[(colorIndex >= 0 ? colorIndex : 0) % colorList.length],
+          occurrence.customClass,
+          occurrence.timeRange,
+        ),
+      );
     }
 
     /// Sort it with the ascending order of start time.

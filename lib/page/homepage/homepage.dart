@@ -11,6 +11,7 @@ import 'package:watermeter/page/homepage/toolbox/class_attendance_card.dart';
 import 'package:watermeter/page/public_widget/toast.dart';
 import 'package:get/get.dart';
 import 'package:watermeter/controller/classtable_controller.dart';
+import 'package:watermeter/controller/custom_class_controller.dart';
 import 'package:watermeter/controller/exam_controller.dart';
 import 'package:watermeter/controller/experiment_controller.dart';
 import 'package:watermeter/page/homepage/info_widget/classtable_card.dart';
@@ -42,6 +43,7 @@ class _MainPageState extends State<MainPage> {
   void initState() {
     super.initState();
     Get.put(ClassTableController());
+    Get.put(CustomClassController());
     Get.put(ExamController());
     Get.put(ExperimentController());
 
