@@ -4,6 +4,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_i18n/flutter_i18n.dart';
+import 'package:get/get_utils/src/extensions/widget_extensions.dart';
 import 'package:styled_widget/styled_widget.dart';
 
 class WeekSelector extends StatefulWidget {
@@ -79,10 +80,11 @@ class _WeekSelectorState extends State<WeekSelector> {
           ],
         )
         .padding(all: 12)
-        .card(
-          margin: const EdgeInsets.symmetric(vertical: 6),
-          elevation: 0,
+        .decorated(
           color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
-        );
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: widget.color.withValues(alpha: 0.25)),
+        )
+        .marginOnly(top: 6, bottom: 6);
   }
 }

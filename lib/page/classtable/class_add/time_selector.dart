@@ -4,6 +4,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_i18n/flutter_i18n.dart';
+import 'package:get/utils.dart';
 import 'package:styled_widget/styled_widget.dart';
 import 'package:watermeter/page/public_widget/wheel_choser.dart';
 import 'package:watermeter/page/classtable/classtable_constant.dart';
@@ -157,10 +158,11 @@ class _TimeSelectorState extends State<TimeSelector> {
           ],
         )
         .padding(all: 12)
-        .card(
-          margin: const EdgeInsets.symmetric(vertical: 6),
-          elevation: 0,
+        .decorated(
           color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
-        );
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: widget.color.withValues(alpha: 0.25)),
+        )
+        .marginSymmetric(vertical: 6);
   }
 }
