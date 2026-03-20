@@ -11,6 +11,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:get/get.dart';
 import 'package:watermeter/controller/classtable_controller.dart';
+import 'package:watermeter/controller/custom_class_controller.dart';
 import 'package:watermeter/controller/experiment_controller.dart';
 import 'package:watermeter/model/time_list.dart';
 import 'package:watermeter/model/xidian_ids/classtable.dart';
@@ -77,14 +78,18 @@ class CourseReminderService extends NotificationService
 
   // Configuration setters with automatic notification update
   Future<void> setEnabled(bool value) async {
-    if (value) { 
+    if (value) {
       // Check permissions before enabling
       final hasNotificationPermission = await checkNotificationPermission();
       final hasExactAlarmPermission = await checkExactAlarmPermission();
 
       if (!hasNotificationPermission || !hasExactAlarmPermission) {
-        log.info('[CourseReminderService] Failed to enable due to no permission');
-        throw Exception("[CourseReminderService] Failed to enable due to no permission");
+        log.info(
+          '[CourseReminderService] Failed to enable due to no permission',
+        );
+        throw Exception(
+          "[CourseReminderService] Failed to enable due to no permission",
+        );
       }
     }
     await preference.setBool(preference.Preference.enableCourseReminder, value);
@@ -359,6 +364,135 @@ class CourseReminderService extends NotificationService
       }
     }
     return locale;
+  }
+
+  Future<void> _scheduleNotificationFromCustomCourseData({
+    int daysToSchedule = 7,
+    int minutesBefore = 5,
+  }) async {
+    log.info(
+      '[CourseReminderService] [scheduleNotificationsFromCustomCourseData] Starting to schedule notifications (daysToSchedule: $daysToSchedule, minutesBefore: $minutesBefore)...',
+    );
+    try {
+      CustomClassController controller;
+      ClassTableController? classTableController;
+
+      try {
+        controller = Get.find<CustomClassController>();
+      } catch (e) {
+        log.error(
+          '[CourseReminderService] [scheduleNotificationsFromCustomCourseData] Controller not found',
+          e,
+        );
+        return;
+      }
+
+      try {
+        classTableController = Get.find<ClassTableController>();
+      } catch (e) {
+        log.warning(
+          '[CourseReminderService] [scheduleNotificationsFromCustomCourseData] ClassTableController not found, week index will use fallback value 0',
+        );
+      }
+
+      final now = DateTime.now();
+      final endDate = now.add(Duration(days: daysToSchedule));
+
+      final data = controller.customClasses;
+
+      if (data.isEmpty) {
+        log.warning(
+          '[CourseReminderService] [scheduleNotificationsFromCustomCourseData] CustomClass data is empty.',
+        );
+        return;
+      }
+
+      final String locale = _getCurrentLocale();
+      int scheduledCount = 0;
+
+      for (final customClass in data) {
+        for (final timeRange in customClass.timeRanges) {
+          final DateTime classStartTime = timeRange.startTime;
+
+          if (classStartTime.isBefore(now) || classStartTime.isAfter(endDate)) {
+            continue;
+          }
+
+          final DateTime notificationTime = classStartTime.subtract(
+            Duration(minutes: minutesBefore),
+          );
+
+          if (notificationTime.isBefore(now)) {
+            continue;
+          }
+
+          int weekIndex = 0;
+          if (classTableController != null) {
+            weekIndex = classTableController.getCurrentWeek(classStartTime);
+            if (weekIndex < 0) {
+              weekIndex = 0;
+            }
+          }
+
+          final int weekday = classStartTime.weekday;
+          final int startClass = _calculateClassPeriodFromTime(classStartTime);
+          final int notificationId = _generateNotificationId(
+            weekday,
+            startClass,
+            weekIndex,
+          );
+
+          String title = NonUII18n.translate(
+            locale,
+            'course_reminder.title',
+            translateParams: {'name': customClass.name},
+          );
+
+          String body = NonUII18n.translate(
+            locale,
+            'course_reminder.body',
+            translateParams: {'time': minutesBefore.toString()},
+          );
+
+          if (customClass.classroom != null &&
+              customClass.classroom!.isNotEmpty) {
+            body +=
+                '\n${NonUII18n.translate(locale, 'course_reminder.location', translateParams: {"location": customClass.classroom!})}';
+          }
+          if (customClass.teacher != null && customClass.teacher!.isNotEmpty) {
+            body +=
+                '\n${NonUII18n.translate(locale, 'course_reminder.teacher', translateParams: {"teacher": customClass.teacher!})}';
+          }
+
+          final Map<String, dynamic> payload = {
+            'type': 'course_reminder',
+            'className': customClass.name,
+            'weekIndex': weekIndex,
+          };
+
+          await scheduleNotification(
+            id: notificationId,
+            title: title,
+            body: body,
+            scheduledTime: notificationTime,
+            payload: jsonEncode(payload),
+          );
+
+          scheduledCount++;
+        }
+      }
+
+      log.info(
+        '[CourseReminderService] [scheduleNotificationsFromCustomCourseData] Scheduled $scheduledCount custom course reminder notifications',
+      );
+    } catch (e, stackTrace) {
+      log.error(
+        '[CourseReminderService] [scheduleNotificationsFromCustomCourseData] Failed to schedule custom course reminder notifications',
+        e,
+        stackTrace,
+      );
+      rethrow;
+    }
   }
 
   Future<void> _scheduleNotificationFromCourseData({
@@ -658,9 +792,13 @@ class CourseReminderService extends NotificationService
     int minutesBefore = 5,
   }) async {
     try {
-      // Schedule course and experiment notifications in parallel
+      // Schedule normal, custom, and experiment notifications in parallel.
       await Future.wait([
         _scheduleNotificationFromCourseData(
+          daysToSchedule: daysToSchedule,
+          minutesBefore: minutesBefore,
+        ),
+        _scheduleNotificationFromCustomCourseData(
           daysToSchedule: daysToSchedule,
           minutesBefore: minutesBefore,
         ),
