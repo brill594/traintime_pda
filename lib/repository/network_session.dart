@@ -27,9 +27,9 @@ String aesEncrypt(String text, Uint8List keyBytes) {
     for (int i = 0; i < _blockSize * 5; i++)
       _aesChars[_rng.nextInt(_aesChars.length)],
   ].join();
-  final plain = randstr.substring(0, 63) + text; // prepend 64B nonce
+  final plain = randstr.substring(0, 64) + text; // prepend 64B nonce
   final key = encrypt.Key(keyBytes);
-  final iv = encrypt.IV.fromUtf8(randstr.substring(64, 79)); // 16B iv
+  final iv = encrypt.IV.fromUtf8(randstr.substring(64, 80)); // 16B iv
   return encrypt.Encrypter(
     encrypt.AES(key, mode: encrypt.AESMode.cbc),
   ).encrypt(plain, iv: iv).base64;
