@@ -121,6 +121,23 @@ class _LoginWindowState extends State<LoginWindow> {
       ),
     );
     EhallSession ses = EhallSession();
+    void updateProgress(int number, String status) {
+      final msg = FlutterI18n.translate(context, status);
+      if (!pd.isOpen()) {
+        pd.show(
+          msg: msg,
+          max: 100,
+          hideValue: true,
+          completed: Completed(
+            completedMsg: FlutterI18n.translate(
+              context,
+              "login.complete_login",
+            ),
+          ),
+        );
+      }
+      pd.update(msg: msg, value: number);
+    }
 
     try {
       await ses.clearCookieJar();
@@ -139,12 +156,21 @@ class _LoginWindowState extends State<LoginWindow> {
       await ses.loginEhall(
         username: _idsAccountController.text,
         password: _idsPasswordController.text,
-        onResponse: (int number, String status) => pd.update(
-          msg: FlutterI18n.translate(context, status),
-          value: number,
-        ),
-        sliderCaptcha: (String cookieStr) {
-          return SliderCaptchaClientProvider(cookie: cookieStr).solve(context);
+        onResponse: updateProgress,
+        sliderCaptcha: (String cookieStr) async {
+          bool closedForManualSolve = false;
+          await SliderCaptchaClientProvider(cookie: cookieStr).solve(
+            context,
+            beforeManualSolve: () {
+              if (pd.isOpen()) {
+                closedForManualSolve = true;
+                pd.close();
+              }
+            },
+          );
+          if (closedForManualSolve && mounted) {
+            updateProgress(45, "login_process.slider");
+          }
         },
       );
       if (!mounted) return;
@@ -251,42 +277,52 @@ class _LoginWindowState extends State<LoginWindow> {
 
   @override
   Widget build(BuildContext context) {
+    final isWide = width / height > 1.0;
     return Scaffold(
-      body: Padding(
-        padding: EdgeInsets.only(
-          left: width / height > 1.0 ? width * 0.25 : widthOfSquare,
-          right: width / height > 1.0 ? width * 0.25 : widthOfSquare,
-          top: kToolbarHeight,
-        ),
-        child: width / height > 1.0
-            ? Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const AppIconWidget().gestures(
-                    onTap: () => Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (context) => const AboutPage(),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 48),
-                  Expanded(child: contentColumn()),
-                ],
-              )
-            : Column(
-                children: [
-                  const AppIconWidget()
-                      .padding(vertical: kToolbarHeight * 0.75)
-                      .gestures(
-                        onTap: () => Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (context) => const AboutPage(),
+      body: SafeArea(
+        child: LayoutBuilder(
+          builder: (context, constraints) => SingleChildScrollView(
+            padding: EdgeInsets.only(
+              left: isWide ? width * 0.25 : widthOfSquare,
+              right: isWide ? width * 0.25 : widthOfSquare,
+              top: kToolbarHeight,
+            ),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                minHeight: max(0.0, constraints.maxHeight - kToolbarHeight),
+              ),
+              child: isWide
+                  ? Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const AppIconWidget().gestures(
+                          onTap: () => Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (context) => const AboutPage(),
+                            ),
                           ),
                         ),
-                      ),
-                  contentColumn(),
-                ],
-              ).center(),
+                        const SizedBox(width: 48),
+                        Expanded(child: contentColumn()),
+                      ],
+                    )
+                  : Column(
+                      children: [
+                        const AppIconWidget()
+                            .padding(vertical: kToolbarHeight * 0.75)
+                            .gestures(
+                              onTap: () => Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (context) => const AboutPage(),
+                                ),
+                              ),
+                            ),
+                        contentColumn(),
+                      ],
+                    ).center(),
+            ),
+          ),
+        ),
       ),
     );
   }

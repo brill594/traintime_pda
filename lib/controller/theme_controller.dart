@@ -40,6 +40,33 @@ class ThemeController {
     );
   });
 
+  String _systemLocalization() {
+    final systemLocale = Platform.localeName;
+    final normalized = systemLocale.toLowerCase().replaceAll('-', '_');
+    log.info("[ThemeController] System lang $systemLocale");
+
+    if (!normalized.contains("zh")) return "en_US";
+    if (normalized.contains("hant") ||
+        normalized.contains("tw") ||
+        normalized.contains("hk") ||
+        normalized.contains("mo")) {
+      return "zh_TW";
+    }
+    return "zh_CN";
+  }
+
+  Locale _localeFromLocalization(String localization) {
+    switch (localization) {
+      case "zh_TW":
+        return const Locale("zh", "TW");
+      case "en_US":
+        return const Locale("en", "US");
+      case "zh_CN":
+      default:
+        return const Locale("zh", "CN");
+    }
+  }
+
   void updateTheme() {
     log.info("[ThemeController] Changing color...");
     int index = preference.getInt(preference.Preference.color);
@@ -53,27 +80,9 @@ class ThemeController {
       preference.Preference.localization,
     );
     if (localization.isEmpty) {
-      String systemLocale = Platform.localeName;
-      log.info("[ThemeController] System lang $systemLocale");
-      if (systemLocale.contains("zh")) {
-        if (Platform.isIOS || Platform.isMacOS) {
-          if (systemLocale.contains("Hans")) {
-            localization = "zh_CN";
-          } else {
-            localization = "zh_TW";
-          }
-        } else {
-          if (systemLocale.contains("CN") || systemLocale.contains("SG")) {
-            localization = "zh_CN";
-          } else {
-            localization = "zh_TW";
-          }
-        }
-      } else {
-        localization = "en_US";
-      }
+      localization = _systemLocalization();
     }
     log.info("[ThemeController] Locale to set $localization");
-    localeSignal.value = Locale.fromSubtags(languageCode: localization);
+    localeSignal.value = _localeFromLocalization(localization);
   }
 }

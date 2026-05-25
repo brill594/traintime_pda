@@ -70,6 +70,13 @@ class IDSSession extends NetworkSession {
     "execution",
   ];
 
+  Future<String> _authServerCookieHeader() async {
+    final cookie = await cookieJar.loadForRequest(
+      Uri.parse("https://ids.xidian.edu.cn/authserver"),
+    );
+    return cookie.map((i) => "${i.name}=${i.value}").join("; ");
+  }
+
   String _parsePasswordWrongMsg(String html) {
     var form = parse(html).getElementById("showErrorTip");
     var msg = form?.text ?? "登录遇到问题";
@@ -170,13 +177,7 @@ class IDSSession extends NetworkSession {
 
     /// Check whether it need CAPTCHA or not:-P
     /// Used in two captcha.
-    String cookieStr = "";
-    var cookie = await cookieJar.loadForRequest(
-      Uri.parse("https://ids.xidian.edu.cn/authserver"),
-    );
-    for (var i in cookie) {
-      cookieStr += "${i.name}=${i.value}; ";
-    }
+    String cookieStr = await _authServerCookieHeader();
     log.info(
       "[IDSSession][login] "
       "cookie: $cookieStr.",
@@ -223,6 +224,7 @@ class IDSSession extends NetworkSession {
       "https://ids.xidian.edu.cn/authserver/common/openSliderCaptcha.htl",
       queryParameters: {'_': DateTime.now().millisecondsSinceEpoch.toString()},
     );
+    cookieStr = await _authServerCookieHeader();
 
     try {
       await sliderCaptcha(cookieStr);

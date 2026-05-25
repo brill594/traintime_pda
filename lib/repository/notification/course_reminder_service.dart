@@ -338,23 +338,18 @@ class CourseReminderService extends NotificationService
     // If localization is not set or empty, get system locale
     if (locale.isEmpty) {
       String systemLocale = Platform.localeName;
+      final normalized = systemLocale.toLowerCase().replaceAll('-', '_');
       log.info(
         "[CourseReminderService] [getCurrentLocale] Using system locale: $systemLocale",
       );
-      if (systemLocale.contains("zh")) {
-        if (Platform.isIOS || Platform.isMacOS) {
-          if (systemLocale.contains("Hans")) {
-            locale = "zh_CN";
-          } else {
-            locale = "zh_TW";
-          }
-        } else {
-          if (systemLocale.contains("CN") || systemLocale.contains("SG")) {
-            locale = "zh_CN";
-          } else {
-            locale = "zh_TW";
-          }
-        }
+      if (normalized.contains("zh")) {
+        locale =
+            normalized.contains("hant") ||
+                normalized.contains("tw") ||
+                normalized.contains("hk") ||
+                normalized.contains("mo")
+            ? "zh_TW"
+            : "zh_CN";
       } else {
         locale = "en_US";
       }
